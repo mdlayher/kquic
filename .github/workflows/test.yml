@@ -1,0 +1,80 @@
+name: Test
+
+# The workflow name above is load-bearing: README.md's status badge points at
+# https://github.com/mdlayher/kquic/workflows/Test/badge.svg.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# Superseded runs on the same ref are pointless; cancel them. Never cancel
+# main, so the badge always reflects a completed run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          # The module targets the latest stable Go release, so there is no
+          # oldstable leg: an older toolchain could not satisfy go.mod's go
+          # directive without silently downloading a newer one anyway. The
+          # "stable" alias tracks the current release so this needs no edits.
+          go-version: stable
+          check-latest: true
+
+      - name: gofumpt
+        run: |
+          # The repo is held to gofumpt (a stricter superset of gofmt).
+          # Unpinned for the same reason as staticcheck below.
+          go install mvdan.cc/gofumpt@latest
+          files="$("$(go env GOPATH)/bin/gofumpt" -l .)"
+          if [ -n "$files" ]; then
+            echo "The following files are not gofumpt'd:"
+            echo "$files"
+            echo
+            "$(go env GOPATH)/bin/gofumpt" -d .
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: staticcheck
+        run: |
+          # Unpinned on purpose: staticcheck ships a new release for each Go
+          # release and an old pin silently stops understanding new language
+          # constructs. A pin can be introduced later if @latest ever breaks
+          # the build; the failure mode is loud and easy to diagnose.
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          "$(go env GOPATH)/bin/staticcheck" ./...
+
+      - name: go build
+        run: go build ./...
+
+      - name: Cross-compile non-Linux stubs
+        # kquic is Linux-only at runtime, but the kquic_others.go stubs must
+        # keep the package compiling everywhere. GitHub runners are amd64
+        # Linux, so exercise the !linux build path explicitly.
+        run: |
+          GOOS=darwin go build ./...
+          GOOS=windows go build ./...
+
+      - name: go test
+        # Runners have no kernel QUIC module (lxin/quic is out-of-tree), so
+        # the TestIntegration* tests probe for IPPROTO_QUIC support and skip
+        # themselves; everything that runs here is hermetic.
+        run: go test -race -v ./...
