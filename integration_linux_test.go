@@ -332,15 +332,6 @@ func dialAccept(t *testing.T, l *kquic.Listener, cert tls.Certificate) (client, 
 			_ = dial.c.Close()
 		}
 
-		// accept(2) fails with EADDRINUSE for unprivileged users: the
-		// child socket is initialized with uid 0 while the listener's
-		// tunnel socket carries the caller's uid, so the kernel's uid
-		// check rejects the bind. Do not work around it. See:
-		// https://github.com/lxin/quic/issues/80.
-		if errors.Is(accept.err, unix.EADDRINUSE) && os.Geteuid() != 0 {
-			t.Skipf("skipping, non-root accept rejected by kernel uid check bug (https://github.com/lxin/quic/issues/80): %v", accept.err)
-		}
-
 		t.Fatalf("failed to accept: %v", accept.err)
 	}
 	if dial.err != nil {

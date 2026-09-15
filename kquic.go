@@ -88,7 +88,7 @@ const (
 
 	// StreamDontwait makes a send return immediately rather than blocking
 	// when the stream is not yet available.
-	StreamDontwait Flags = 0x10000 // MSG_WAITFORONE
+	StreamDontwait Flags = 0x80 // MSG_EOR
 
 	// StreamSndblock blocks a send until the stream's data is acknowledged.
 	StreamSndblock Flags = 0x2000 // MSG_ERRQUEUE

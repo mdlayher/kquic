@@ -21,9 +21,8 @@ Run these on every Go change, alongside `go build` and `go test`:
 The development machine has no kernel QUIC module, so the TestIntegration*
 tests skip locally. To exercise them, build a test binary and run it on the
 quicdev machine: `go test -c`, `scp` the binary to `quicdev:tmp/`, then run
-it over `ssh quicdev` (no sudo is available there). Expect the loopback test
-to skip as non-root until https://github.com/lxin/quic/issues/80 is fixed;
-the Cloudflare dial test must pass.
+it over `ssh quicdev` (no sudo is available there). Both the loopback and the
+Cloudflare dial test must pass as an unprivileged user.
 
 ## Code style
 

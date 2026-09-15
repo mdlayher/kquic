@@ -35,8 +35,10 @@ const (
 //   - traffic secrets are installed via quicsys.QUIC_SOCKOPT_CRYPTO_SECRET
 //   - the peer's transport parameters are set via quicsys.QUIC_SOCKOPT_TRANSPORT_PARAM_EXT
 //
-// The kernel considers the connection established once both application-level
-// secrets are installed, so the loop simply exits on QUICHandshakeDone.
+// crypto/tls reports QUICHandshakeDone before it provides the 1-RTT read
+// secret, which RFC 9001, section 5.7 requires a QUIC layer not to use any
+// earlier, so the loop drains the remaining events and exits once the queue
+// is empty.
 func handshake(ctx context.Context, c *socket.Conn, qc *tls.QUICConn) error {
 	// Local transport parameters are owned and encoded by the kernel.
 	tp := make([]byte, maxTransportParamExt)
@@ -54,6 +56,7 @@ func handshake(ctx context.Context, c *socket.Conn, qc *tls.QUICConn) error {
 	}
 
 	buf := make([]byte, maxHandshakeMsg)
+	var done bool
 	for {
 		ev := qc.NextEvent()
 		if err, ok := errorEvent(ev); ok {
@@ -62,6 +65,12 @@ func handshake(ctx context.Context, c *socket.Conn, qc *tls.QUICConn) error {
 
 		switch ev.Kind {
 		case tls.QUICNoEvent:
+			// Once the handshake is done, an empty queue means every
+			// secret has been installed and there is nothing left to read.
+			if done {
+				return nil
+			}
+
 			// crypto/tls needs more input from the peer.
 			level, data, err := recvHandshake(ctx, c, buf)
 			if err != nil {
@@ -90,7 +99,9 @@ func handshake(ctx context.Context, c *socket.Conn, qc *tls.QUICConn) error {
 			// Cannot happen: parameters are set before Start.
 			return errors.New("kquic: transport parameters unexpectedly required")
 		case tls.QUICHandshakeDone:
-			return nil
+			// The application read secret is still queued behind this
+			// event; keep draining rather than returning here.
+			done = true
 		case tls.QUICRejectedEarlyData, tls.QUICResumeSession, tls.QUICStoreSession:
 			// Session resumption and 0-RTT are not supported in v0; these
 			// events require no action.

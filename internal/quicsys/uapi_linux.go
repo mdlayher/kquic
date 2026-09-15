@@ -9,7 +9,7 @@ import (
 
 // Constants and structures from the kernel QUIC UAPI header
 // (modules/include/uapi/linux/quic.h in https://github.com/lxin/quic,
-// verified against commit bf47121, 2026-08-21). Package quicsys is internal:
+// verified against commit a03b21c, 2026-09-15). Package quicsys is internal:
 // the raw UAPI surface is not part of kquic's public API.
 
 // Socket creation and option level.
@@ -37,7 +37,7 @@ const (
 	MSG_QUIC_STREAM_NEW      = syscall.MSG_SYN
 	MSG_QUIC_STREAM_FIN      = syscall.MSG_FIN
 	MSG_QUIC_STREAM_UNI      = syscall.MSG_CONFIRM
-	MSG_QUIC_STREAM_DONTWAIT = syscall.MSG_WAITFORONE
+	MSG_QUIC_STREAM_DONTWAIT = syscall.MSG_EOR
 	MSG_QUIC_STREAM_SNDBLOCK = syscall.MSG_ERRQUEUE
 
 	MSG_QUIC_DATAGRAM     = syscall.MSG_RST
